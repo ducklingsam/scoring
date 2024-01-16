@@ -1,0 +1,32 @@
+from pypmml import Model
+import logging
+import json
+import pandas as pd
+import numpy as np
+import math
+import datetime as dt
+import re
+
+
+def calc(df: pd.core.frame.DataFrame) -> pd.core.frame.DataFrame:
+    sdf = df.copy(deep=True)
+    externalRequest = pd.json_normalize(sdf['externalRequest']).rename({0: 'externalRequest'}).T
+    pudf = pd.concat([sdf[['applicationid']], externalRequest], axis=1).fillna(value={'applicationid':
+                                                                                          sdf['applicationid'][0]})
+    # Could be optimized by using tools.py
+    catch = ""
+    for i in pudf['externalRequest']:
+        if 'НБКИ_1' in i:
+            catch = i['НБКИ_1']
+            break
+
+    # print(catch[catch.find('<consentDate>')+len('<consentDate>'):catch.rfind('</consentDate>')])
+
+    if catch:
+        sdf['consentDate'] = catch[catch.find('<consentDate>') + len('<consentDate>'):catch.rfind('</consentDate>')]
+    else:
+        sdf['consentDate'] = '1900-01-01'
+
+    sdf['Diff_betw_NBKI_consent_dt_and_appdate'] = \
+        int(abs(pd.to_datetime(sdf['applicationdate']) - pd.to_datetime(sdf['consentDate'])) / np.timedelta64(1, 'D'))
+    return sdf
